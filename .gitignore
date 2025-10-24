@@ -1,0 +1,36 @@
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+
+# Node (if you add build tools later)
+node_modules/
+dist/
+*.zip
+
+# Temporary files
+*.tmp
+*.bak
+
+# Chrome extension packaging
+*.pem
+*.crx
+
