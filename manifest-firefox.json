@@ -6,14 +6,10 @@
   "permissions": [
     "activeTab",
     "storage",
-    "tabs",
     "https://*.salesforce.com/*",
     "https://*.force.com/*",
     "https://login.salesforce.com/*",
-    "https://test.salesforce.com/*",
-    "http://localhost/*",
-    "http://127.0.0.1/*",
-    "https://eng-ai-model-gateway.sfproxy.devx-preprod.aws-esvc1-useast2.aws.sfdc.cl/*"
+    "https://test.salesforce.com/*"
   ],
   "content_scripts": [
     {
@@ -21,10 +17,7 @@
         "https://*.salesforce.com/*",
         "https://*.force.com/*",
         "https://login.salesforce.com/*",
-        "https://test.salesforce.com/*",
-        "http://localhost/*",
-        "http://127.0.0.1/*",
-        "file:///*"
+        "https://test.salesforce.com/*"
       ],
       "js": ["content.js"],
       "css": ["styles.css"],

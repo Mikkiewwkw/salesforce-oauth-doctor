@@ -260,9 +260,11 @@
 
   // Create the analyzer overlay
   function createAnalyzerOverlay(scopes, analysis, error) {
-    // Remove existing overlay if present
+    // Remove existing overlay if present (without animation to avoid flicker)
     const existing = document.getElementById('oauth-doctor-overlay');
-    if (existing) existing.remove();
+    if (existing) {
+      existing.remove();
+    }
     
     const overlay = document.createElement('div');
     overlay.id = 'oauth-doctor-overlay';
@@ -287,8 +289,40 @@
               ${explanation.fix.map(step => `<li>${step}</li>`).join('')}
             </ol>
           </div>
+          
+          <div class="oauth-doctor-ai-section" id="ai-analysis-section">
+            <h4>🤖 AI-Powered Analysis</h4>
+            <div class="oauth-doctor-ai-trigger">
+              <p class="oauth-doctor-ai-description">Get personalized troubleshooting advice from AI based on Salesforce documentation.</p>
+              <div class="oauth-doctor-model-selector">
+                <label for="ai-model-select">Select Model:</label>
+                <select id="ai-model-select" class="oauth-doctor-model-dropdown">
+                  <option value="claude-sonnet-4-20250514">Claude Sonnet 4 (Best)</option>
+                  <option value="claude-3-7-sonnet-20250219">Claude Sonnet 3.7</option>
+                  <option value="claude-3-5-sonnet-20241022">Claude Sonnet 3.5</option>
+                  <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                  <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                  <option value="gemini-2.0-flash">Gemini 2.0 Flash (Fast)</option>
+                  <option value="gpt-5">GPT-5</option>
+                  <option value="gpt-5-mini">GPT-5 Mini</option>
+                  <option value="gpt-4o">GPT-4o</option>
+                  <option value="gpt-4o-mini">GPT-4o Mini (Fastest)</option>
+                </select>
+              </div>
+              <button id="trigger-ai-analysis" class="oauth-doctor-ai-button">
+                <span class="button-icon">✨</span>
+                <span>Analyze with AI</span>
+              </button>
+              <p class="oauth-doctor-ai-note">Note: AI analysis uses API tokens</p>
+            </div>
+          </div>
         </div>
       `;
+      
+      // Set up AI analysis button after rendering
+      setTimeout(() => {
+        setupAIAnalysisButton(error, explanation);
+      }, 100);
     }
     
     // Scope analysis section
@@ -335,24 +369,246 @@
             <span class="oauth-doctor-logo">🩺</span>
             <span>OAuth Doctor</span>
           </div>
-          <button class="oauth-doctor-close" id="oauth-doctor-close">✕</button>
+          <button class="oauth-doctor-close" id="oauth-doctor-close" title="Close">✕</button>
         </div>
-        ${content || '<p class="oauth-doctor-no-data">No OAuth data detected on this page.</p>'}
+        <div class="oauth-doctor-content">
+          ${content || '<p class="oauth-doctor-no-data">No OAuth data detected on this page.</p>'}
+        </div>
       </div>
     `;
     
     document.body.appendChild(overlay);
     
-    // Add close button handler
+    // Add close button handler with smooth animation
     document.getElementById('oauth-doctor-close').addEventListener('click', () => {
-      overlay.remove();
+      closeOverlay(overlay);
     });
     
-    // Close on outside click
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) {
-        overlay.remove();
+    // Optional: Close on Escape key
+    const escapeHandler = (e) => {
+      if (e.key === 'Escape') {
+        closeOverlay(overlay);
+        document.removeEventListener('keydown', escapeHandler);
       }
+    };
+    document.addEventListener('keydown', escapeHandler);
+  }
+  
+  // Smooth close animation
+  function closeOverlay(overlay) {
+    overlay.classList.add('closing');
+    setTimeout(() => {
+      overlay.remove();
+    }, 300); // Match animation duration
+  }
+  
+  // Setup AI analysis button
+  function setupAIAnalysisButton(error, explanation) {
+    const button = document.getElementById('trigger-ai-analysis');
+    const modelSelect = document.getElementById('ai-model-select');
+    
+    if (!button || !modelSelect) return;
+    
+    // Load saved model preference
+    chrome.storage.sync.get(['preferredModel'], (result) => {
+      if (result.preferredModel) {
+        modelSelect.value = result.preferredModel;
+      }
+    });
+    
+    // Save model preference on change
+    modelSelect.addEventListener('change', () => {
+      chrome.storage.sync.set({ preferredModel: modelSelect.value });
+    });
+    
+    button.addEventListener('click', () => {
+      const selectedModel = modelSelect.value;
+      requestAIAnalysis(error, explanation, selectedModel);
+    });
+  }
+  
+  // Request AI analysis for error
+  function requestAIAnalysis(error, explanation, model) {
+    console.log('OAuth Doctor: Requesting AI analysis with model:', model);
+    console.log('OAuth Doctor: Error details:', error);
+    
+    // Show loading state
+    const aiSection = document.getElementById('ai-analysis-section');
+    if (!aiSection) return;
+    
+    aiSection.innerHTML = `
+      <h4>🤖 AI-Powered Analysis</h4>
+      <div class="oauth-doctor-ai-loading">
+        <div class="oauth-doctor-spinner"></div>
+        <p>Analyzing error with AI...</p>
+        <small class="oauth-doctor-model-label">Using: ${getModelDisplayName(model)}</small>
+      </div>
+    `;
+    
+    chrome.runtime.sendMessage({
+      action: 'getAIAnalysis',
+      errorCode: error.error,
+      errorDescription: error.description,
+      existingExplanation: explanation,
+      model: model
+    }, (response) => {
+      console.log('OAuth Doctor: Received response:', response);
+      
+      if (chrome.runtime.lastError) {
+        console.error('OAuth Doctor: AI request failed', chrome.runtime.lastError);
+        displayAIAnalysis({ success: false, error: chrome.runtime.lastError.message }, model, error, explanation);
+        return;
+      }
+      
+      // Additional validation
+      if (!response) {
+        console.error('OAuth Doctor: No response received');
+        displayAIAnalysis({ success: false, error: 'No response from background script' }, model, error, explanation);
+        return;
+      }
+      
+      displayAIAnalysis(response, model, error, explanation);
+    });
+  }
+  
+  // Get display name for model
+  function getModelDisplayName(modelId) {
+    const modelNames = {
+      'claude-sonnet-4-20250514': 'Claude Sonnet 4',
+      'claude-3-7-sonnet-20250219': 'Claude Sonnet 3.7',
+      'claude-3-5-sonnet-20241022': 'Claude Sonnet 3.5',
+      'gemini-2.5-pro': 'Gemini 2.5 Pro',
+      'gemini-2.5-flash': 'Gemini 2.5 Flash',
+      'gemini-2.0-flash': 'Gemini 2.0 Flash',
+      'gpt-5': 'GPT-5',
+      'gpt-5-mini': 'GPT-5 Mini',
+      'gpt-4o': 'GPT-4o',
+      'gpt-4o-mini': 'GPT-4o Mini'
+    };
+    return modelNames[modelId] || modelId;
+  }
+  
+  // Display AI analysis results
+  function displayAIAnalysis(response, model, error, explanation) {
+    const aiSection = document.getElementById('ai-analysis-section');
+    if (!aiSection) return;
+    
+    if (response.success) {
+      // Validate we actually have content
+      if (!response.analysis || response.analysis.trim() === '') {
+        console.error('OAuth Doctor: Received empty analysis');
+        displayAIAnalysis({ 
+          success: false, 
+          error: 'Model returned empty response. This model may not be available or hit a content filter.' 
+        }, model, error, explanation);
+        return;
+      }
+      
+      // Format the AI response with better styling
+      const formattedAnalysis = response.analysis
+        .replace(/\n\n/g, '</p><p>')
+        .replace(/\n/g, '<br>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/- (.*?)(<br>|<\/p>)/g, '<li>$1</li>');
+      
+      const modelDisplayName = model ? getModelDisplayName(model) : 'AI';
+      
+      aiSection.innerHTML = `
+        <h4>🤖 AI-Powered Analysis</h4>
+        <div class="oauth-doctor-ai-result">
+          <p>${formattedAnalysis}</p>
+          <div class="oauth-doctor-ai-footer">
+            <small>✨ Powered by ${modelDisplayName} • ${new Date(response.timestamp).toLocaleTimeString()}</small>
+          </div>
+        </div>
+      `;
+    } else {
+      // Show error with option to try another model
+      const failedModelName = model ? getModelDisplayName(model) : 'Selected model';
+      const errorDetails = response.error || 'Unknown error occurred';
+      
+      // Parse error to show user-friendly message
+      let userFriendlyError = errorDetails;
+      if (errorDetails.includes('empty response') || errorDetails.includes('empty')) {
+        userFriendlyError = 'The model returned an empty response. It may not support this request type, hit a content filter, or be temporarily unavailable.';
+      } else if (errorDetails.includes('temperature')) {
+        userFriendlyError = 'This model doesn\'t support the current temperature setting. Try a different model.';
+      } else if (errorDetails.includes('400')) {
+        userFriendlyError = 'Bad request - the model may not support this request format.';
+      } else if (errorDetails.includes('401') || errorDetails.includes('403')) {
+        userFriendlyError = 'Authentication error. Please check your API key.';
+      } else if (errorDetails.includes('404')) {
+        userFriendlyError = 'Model not found or not available.';
+      } else if (errorDetails.includes('429')) {
+        userFriendlyError = 'Rate limit exceeded. Please try again in a moment.';
+      } else if (errorDetails.includes('500')) {
+        userFriendlyError = 'Server error. Please try again later.';
+      } else if (errorDetails.includes('Invalid response structure')) {
+        userFriendlyError = 'The API returned an unexpected response format. This model may not be compatible.';
+      }
+      
+      aiSection.innerHTML = `
+        <h4>🤖 AI-Powered Analysis</h4>
+        <div class="oauth-doctor-ai-error">
+          <p><strong>⚠️ ${failedModelName} failed</strong></p>
+          <p class="oauth-doctor-error-message">${userFriendlyError}</p>
+          <details class="oauth-doctor-error-details">
+            <summary>Show technical details</summary>
+            <pre>${errorDetails}</pre>
+          </details>
+          
+          <div class="oauth-doctor-retry-section">
+            <p><strong>Try a different model:</strong></p>
+            <div class="oauth-doctor-model-selector">
+              <label for="ai-model-retry">Select Model:</label>
+              <select id="ai-model-retry" class="oauth-doctor-model-dropdown">
+                <option value="claude-sonnet-4-20250514">Claude Sonnet 4 (Recommended)</option>
+                <option value="claude-3-7-sonnet-20250219">Claude Sonnet 3.7</option>
+                <option value="claude-3-5-sonnet-20241022">Claude Sonnet 3.5</option>
+                <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                <option value="gpt-4o">GPT-4o</option>
+                <option value="gpt-4o-mini">GPT-4o Mini</option>
+              </select>
+            </div>
+            <button id="retry-ai-analysis" class="oauth-doctor-ai-button oauth-doctor-retry-button">
+              <span class="button-icon">🔄</span>
+              <span>Retry with Different Model</span>
+            </button>
+          </div>
+        </div>
+      `;
+      
+      // Set up retry button
+      setTimeout(() => {
+        setupRetryButton(error, explanation, model);
+      }, 100);
+    }
+  }
+  
+  // Setup retry button for failed AI analysis
+  function setupRetryButton(error, explanation, failedModel) {
+    const retryButton = document.getElementById('retry-ai-analysis');
+    const modelSelect = document.getElementById('ai-model-retry');
+    
+    if (!retryButton || !modelSelect) return;
+    
+    // Exclude the failed model from default selection
+    if (failedModel) {
+      // Try to select a different model
+      const options = modelSelect.options;
+      for (let i = 0; i < options.length; i++) {
+        if (options[i].value !== failedModel) {
+          modelSelect.selectedIndex = i;
+          break;
+        }
+      }
+    }
+    
+    retryButton.addEventListener('click', () => {
+      const selectedModel = modelSelect.value;
+      requestAIAnalysis(error, explanation, selectedModel);
     });
   }
 
@@ -377,6 +633,8 @@
 
   // Initialize the OAuth Doctor
   function initialize() {
+    console.log('OAuth Doctor: Initializing on', window.location.href);
+    
     // Check for OAuth errors first (higher priority)
     const error = checkForOAuthError();
     if (error) {
@@ -385,18 +643,21 @@
       return;
     }
     
+    // Check for scopes in URL (even if not on OAuth page)
+    const scopes = extractScopes();
+    if (scopes.length > 0) {
+      console.log('OAuth Doctor: Scopes detected in URL', scopes);
+      const analysis = analyzeScopes(scopes);
+      console.log('OAuth Doctor: Scope analysis', analysis);
+      createAnalyzerOverlay(scopes, analysis, null);
+      return;
+    }
+    
     // Check if on OAuth authorization page
     if (isOAuthAuthorizationPage()) {
-      console.log('OAuth Doctor: Authorization page detected');
-      const scopes = extractScopes();
-      
-      if (scopes.length > 0) {
-        const analysis = analyzeScopes(scopes);
-        console.log('OAuth Doctor: Scope analysis', analysis);
-        createAnalyzerOverlay(scopes, analysis, null);
-      } else {
-        console.log('OAuth Doctor: No scopes detected');
-      }
+      console.log('OAuth Doctor: Authorization page detected but no scopes in URL');
+    } else {
+      console.log('OAuth Doctor: Not an OAuth page, no errors or scopes detected');
     }
   }
 
@@ -408,18 +669,28 @@
   }
 
   // Also monitor for dynamic page changes (SPAs)
+  // Use a flag to prevent multiple simultaneous initializations
+  let isInitializing = false;
   let lastUrl = window.location.href;
+  
   const observer = new MutationObserver(() => {
-    if (lastUrl !== window.location.href) {
+    if (lastUrl !== window.location.href && !isInitializing) {
       lastUrl = window.location.href;
-      setTimeout(initialize, 500); // Delay to let page render
+      isInitializing = true;
+      setTimeout(() => {
+        initialize();
+        isInitializing = false;
+      }, 500); // Delay to let page render
     }
   });
 
-  observer.observe(document.body, {
-    childList: true,
-    subtree: true
-  });
+  // Only observe if body exists (avoid errors)
+  if (document.body) {
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  }
 
   // Listen for messages from background script
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {

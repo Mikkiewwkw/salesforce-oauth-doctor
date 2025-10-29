@@ -1,19 +1,17 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
   "name": "OAuth Doctor - Salesforce OAuth Troubleshooter",
   "version": "1.0.0",
   "description": "Analyze OAuth scopes and diagnose authorization errors for Salesforce OAuth flows",
   "permissions": [
     "activeTab",
-    "storage",
-    "tabs",
+    "storage"
+  ],
+  "host_permissions": [
     "https://*.salesforce.com/*",
     "https://*.force.com/*",
     "https://login.salesforce.com/*",
-    "https://test.salesforce.com/*",
-    "http://localhost/*",
-    "http://127.0.0.1/*",
-    "https://eng-ai-model-gateway.sfproxy.devx-preprod.aws-esvc1-useast2.aws.sfdc.cl/*"
+    "https://test.salesforce.com/*"
   ],
   "content_scripts": [
     {
@@ -21,10 +19,7 @@
         "https://*.salesforce.com/*",
         "https://*.force.com/*",
         "https://login.salesforce.com/*",
-        "https://test.salesforce.com/*",
-        "http://localhost/*",
-        "http://127.0.0.1/*",
-        "file:///*"
+        "https://test.salesforce.com/*"
       ],
       "js": ["content.js"],
       "css": ["styles.css"],
@@ -32,9 +27,9 @@
     }
   ],
   "background": {
-    "scripts": ["background.js"]
+    "service_worker": "background.js"
   },
-  "browser_action": {
+  "action": {
     "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon16.png",
@@ -46,12 +41,6 @@
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
-  },
-  "browser_specific_settings": {
-    "gecko": {
-      "id": "oauth-doctor@salesforce.addon",
-      "strict_min_version": "78.0"
-    }
   }
 }
 
