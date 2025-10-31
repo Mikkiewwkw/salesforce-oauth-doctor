@@ -1,208 +1,71 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OAuth Doctor</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
     body {
-      width: 350px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      width: 320px;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+      margin: 0;
+    }
+    h2 {
+      color: #0070d2;
+      margin: 0 0 12px 0;
+      font-size: 18px;
+    }
+    p {
+      color: #666;
+      font-size: 13px;
+      line-height: 1.5;
+      margin: 0 0 10px 0;
+    }
+    .status {
+      background: #e8f5e9;
+      padding: 12px;
+      border-radius: 8px;
+      border-left: 4px solid #4caf50;
+      margin-top: 12px;
+    }
+    .status strong {
+      color: #2e7d32;
+    }
+    .button {
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
-    }
-
-    .popup-container {
-      padding: 20px;
-    }
-
-    .header {
-      text-align: center;
-      margin-bottom: 20px;
-    }
-
-    .logo {
-      font-size: 48px;
-      margin-bottom: 10px;
-    }
-
-    h1 {
-      font-size: 24px;
-      margin-bottom: 8px;
-    }
-
-    .version {
-      font-size: 12px;
-      opacity: 0.8;
-    }
-
-    .content {
-      background: rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(10px);
-      border-radius: 12px;
-      padding: 20px;
-      margin-bottom: 16px;
-    }
-
-    .info-section {
-      margin-bottom: 20px;
-    }
-
-    .info-section h2 {
-      font-size: 16px;
-      margin-bottom: 12px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .info-section p {
-      font-size: 14px;
-      line-height: 1.6;
-      opacity: 0.9;
-    }
-
-    .features {
-      list-style: none;
-      padding: 0;
-    }
-
-    .features li {
-      padding: 8px 0;
-      font-size: 14px;
-      display: flex;
-      align-items: flex-start;
-      gap: 8px;
-    }
-
-    .features li::before {
-      content: "✓";
-      font-weight: bold;
-      flex-shrink: 0;
-    }
-
-    .button-group {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    button {
-      background: white;
-      color: #667eea;
       border: none;
-      padding: 12px 20px;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
-
-    button:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    }
-
-    button:active {
-      transform: translateY(0);
-    }
-
-    .secondary-button {
-      background: rgba(255, 255, 255, 0.2);
-      color: white;
-    }
-
-    .status {
-      text-align: center;
-      padding: 12px;
-      background: rgba(255, 255, 255, 0.1);
+      padding: 10px 16px;
       border-radius: 8px;
       font-size: 13px;
-      margin-top: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      margin: 8px 0;
+      transition: transform 0.2s;
     }
-
-    .status.active {
-      background: rgba(40, 167, 69, 0.3);
-    }
-
-    .status.inactive {
-      background: rgba(220, 53, 69, 0.3);
-    }
-
-    .footer {
-      text-align: center;
-      padding: 16px;
-      font-size: 12px;
-      opacity: 0.8;
-    }
-
-    .footer a {
-      color: white;
-      text-decoration: none;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.3);
-    }
-
-    .footer a:hover {
-      border-bottom-color: white;
+    .button:hover {
+      transform: translateY(-2px);
     }
   </style>
 </head>
 <body>
-  <div class="popup-container">
-    <div class="header">
-      <div class="logo">🩺</div>
-      <h1>OAuth Doctor</h1>
-      <div class="version">v1.0.0</div>
-    </div>
-
-    <div class="content">
-      <div class="info-section">
-        <h2>🔍 What I Do</h2>
-        <p>I help you troubleshoot Salesforce OAuth flows by analyzing scopes and diagnosing errors automatically.</p>
-      </div>
-
-      <div class="info-section">
-        <h2>✨ Features</h2>
-        <ul class="features">
-          <li>Analyzes OAuth scope permissions</li>
-          <li>Color-codes risk levels</li>
-          <li>Diagnoses OAuth errors instantly</li>
-          <li>Provides actionable fixes</li>
-        </ul>
-      </div>
-
-      <div class="button-group">
-        <button id="analyze-btn">
-          <span>🔬</span>
-          <span>Analyze Current Page</span>
-        </button>
-        <button id="docs-btn" class="secondary-button">
-          <span>📖</span>
-          <span>OAuth Documentation</span>
-        </button>
-      </div>
-
-      <div class="status active" id="status">
-        ✓ Extension Active
-      </div>
-    </div>
-
-    <div class="footer">
-      <p>Navigate to a Salesforce OAuth page<br>to see the magic happen! ✨</p>
-    </div>
+  <h2>👨‍⚕️ Salesforce OAuth Doctor</h2>
+  <p>Your security physician that diagnoses OAuth authorization requests and prescribes risk assessments for scopes.</p>
+  
+  <button class="button" id="analyze-btn">🔬 Analyze Current Page</button>
+  <button class="button" id="docs-btn">📖 OAuth Documentation</button>
+  
+  <div class="status">
+    <strong>✓ Doctor On Duty</strong>
+    <p style="margin: 8px 0 0 0; font-size: 12px;">
+      Visit a Salesforce OAuth authorization page to get your security diagnosis.
+    </p>
   </div>
-
+  
+  <p style="margin-top: 12px; font-size: 11px; color: #999;">
+    Version 1.0 | Your OAuth Security Physician
+  </p>
+  
   <script src="popup.js"></script>
 </body>
 </html>

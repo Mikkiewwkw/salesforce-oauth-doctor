@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
         chrome.tabs.sendMessage(tabs[0].id, { action: 'analyze' }, (response) => {
           setTimeout(() => {
             analyzeBtn.disabled = false;
-            analyzeBtn.innerHTML = '<span>🔬</span><span>Analyze Current Page</span>';
+            analyzeBtn.textContent = '🔬 Analyze Current Page';
             
             if (chrome.runtime.lastError || !response) {
               alert('Could not analyze this page. Make sure you are on a Salesforce OAuth page.');

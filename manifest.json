@@ -7,24 +7,13 @@
     "activeTab",
     "storage",
     "tabs",
-    "https://*.salesforce.com/*",
-    "https://*.force.com/*",
-    "https://login.salesforce.com/*",
-    "https://test.salesforce.com/*",
-    "http://localhost/*",
-    "http://127.0.0.1/*",
+    "<all_urls>",
     "https://eng-ai-model-gateway.sfproxy.devx-preprod.aws-esvc1-useast2.aws.sfdc.cl/*"
   ],
   "content_scripts": [
     {
       "matches": [
-        "https://*.salesforce.com/*",
-        "https://*.force.com/*",
-        "https://login.salesforce.com/*",
-        "https://test.salesforce.com/*",
-        "http://localhost/*",
-        "http://127.0.0.1/*",
-        "file:///*"
+        "<all_urls>"
       ],
       "js": ["content.js"],
       "css": ["styles.css"],

@@ -1,22 +1,23 @@
-/* OAuth Doctor Styles - Top-Right Popup */
+/* OAuth Doctor Styles - Top-Right Popup (Teammate's Enhanced Design) */
 
 .oauth-doctor-overlay {
   position: fixed;
-  top: 16px;
-  right: 16px;
-  width: 420px;
-  max-height: calc(100vh - 32px);
+  top: 20px;
+  right: 20px;
   z-index: 2147483647; /* Maximum z-index for browser extensions */
-  animation: slideInRight 0.3s ease-out;
+  animation: slideInRight 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   pointer-events: auto;
 }
 
 @keyframes slideInRight {
-  from {
-    transform: translateX(440px);
+  0% {
+    transform: translateX(600px);
     opacity: 0;
   }
-  to {
+  60% {
+    transform: translateX(-10px);
+  }
+  100% {
     transform: translateX(0);
     opacity: 1;
   }
@@ -24,17 +25,62 @@
 
 /* Slide out animation for closing */
 .oauth-doctor-overlay.closing {
-  animation: slideOutRight 0.3s ease-in forwards;
+  animation: slideOutRight 0.4s ease-in forwards;
 }
 
 @keyframes slideOutRight {
-  from {
+  0% {
     transform: translateX(0);
     opacity: 1;
   }
-  to {
-    transform: translateX(440px);
+  100% {
+    transform: translateX(600px);
     opacity: 0;
+  }
+}
+
+/* Pulsing border animation */
+@keyframes pulse-border {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.02);
+    opacity: 0.8;
+  }
+}
+
+/* Bouncing badge animation */
+@keyframes bounce-badge {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-4px) scale(1.1);
+  }
+}
+
+/* Wiggling icon animation */
+@keyframes wiggle-icon {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-5deg) scale(1.1);
+  }
+  75% {
+    transform: rotate(5deg) scale(1.1);
+  }
+}
+
+/* Sliding background pattern */
+@keyframes slide-bg {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(20px);
   }
 }
 
