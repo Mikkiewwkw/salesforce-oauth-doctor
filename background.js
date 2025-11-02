@@ -1,8 +1,10 @@
 // OAuth Doctor - Background Service Worker
 
+// Cross-browser compatibility for storage API
+const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
+
 // LLM API Configuration
 const LLM_CONFIG = {
-  apiKey: 'sk-XiT2ygqP_1hcIotKVP_RuA',
   endpoint: 'https://eng-ai-model-gateway.sfproxy.devx-preprod.aws-esvc1-useast2.aws.sfdc.cl/chat/completions',
   model: 'claude-sonnet-4-20250514'
 };
@@ -59,6 +61,19 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 async function analyzeErrorWithAI(errorCode, errorDescription, existingExplanation, model) {
   console.log('OAuth Doctor: Requesting AI analysis for error:', errorCode, 'with model:', model);
   
+  // Get API key and model from storage
+  const config = await browserAPI.storage.local.get(['sfLlmApiKey', 'aiModel']);
+  const apiKey = config.sfLlmApiKey;
+  const selectedModel = model || config.aiModel || 'claude-sonnet-4-20250514';
+  
+  if (!apiKey) {
+    console.log('OAuth Doctor: No API key configured');
+    return {
+      success: false,
+      error: 'No API key configured. Please add your Salesforce LLM API key in the extension popup.'
+    };
+  }
+  
   const prompt = `You are a Salesforce OAuth expert helping developers troubleshoot authorization errors.
 
 ${SALESFORCE_OAUTH_DOC}
@@ -80,8 +95,6 @@ Provide a concise, actionable response (max 200 words) that:
 Format as plain text, be direct and helpful. Focus on practical solutions.`;
 
   try {
-    // Adjust parameters based on model
-    const selectedModel = model || LLM_CONFIG.model;
     const requestBody = {
       model: selectedModel,
       messages: [
@@ -97,16 +110,17 @@ Format as plain text, be direct and helpful. Focus on practical solutions.`;
       max_tokens: 500
     };
     
-    // GPT-5 only supports temperature=1, omit for compatibility
-    // Other models work fine with temperature=0.3
+    // Some models don't support temperature parameter
     if (!selectedModel.startsWith('gpt-5')) {
       requestBody.temperature = 0.3;
     }
     
+    console.log('OAuth Doctor: Using API key from storage (first 10 chars):', apiKey.substring(0, 10) + '...');
+    
     const response = await fetch(LLM_CONFIG.endpoint, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LLM_CONFIG.apiKey}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(requestBody)
@@ -137,7 +151,7 @@ Format as plain text, be direct and helpful. Focus on practical solutions.`;
       success: true,
       analysis: aiResponse,
       timestamp: new Date().toISOString(),
-      model: model || LLM_CONFIG.model
+      model: selectedModel
     };
   } catch (error) {
     console.error('OAuth Doctor: AI analysis failed', error);
