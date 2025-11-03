@@ -187,7 +187,6 @@
     if (url.includes('/services/oauth2/authorize') || 
         url.includes('/services/oauth2/token') ||
         path.includes('/setup/secur/remoteaccessauthorizationpage.apexp')) {
-      console.log('OAuth Doctor: Detected Salesforce OAuth page by URL pattern');
       return true;
     }
     
@@ -208,7 +207,6 @@
     const hasOAuthElements = hasApprovalButton && (hasDenyButton || hasOAuthScope);
     
     if (isSalesforceDomain && hasOAuthElements) {
-      console.log('OAuth Doctor: Detected Salesforce OAuth page by domain + elements');
       return true;
     }
     
@@ -217,8 +215,6 @@
 
   // Extract scopes from URL or page content
   function extractScopes() {
-    console.log('OAuth Doctor: Extracting scopes from page...');
-    console.log('OAuth Doctor: Current URL:', window.location.href);
     const scopes = new Set();
     
     // Try to get from URL parameter first (THIS IS THE PRIMARY SOURCE)
@@ -226,23 +222,18 @@
     const scopeParam = urlParams.get('scope');
     
     if (scopeParam) {
-      console.log('OAuth Doctor: ✅ Found scope parameter in URL:', scopeParam);
       const urlScopes = scopeParam.split(/[\s,]+/).filter(s => s.trim());
-      console.log('OAuth Doctor: URL scopes array:', urlScopes);
       urlScopes.forEach(scope => {
         const normalized = scope.toLowerCase().trim();
         scopes.add(normalized);
-        console.log('OAuth Doctor: Added scope from URL:', normalized);
       });
       
       // If we got scopes from URL, return immediately - don't parse from page descriptions
       if (scopes.size > 0) {
         const scopesArray = Array.from(scopes);
-        console.log('OAuth Doctor: ✅ Using scopes from URL (primary source):', scopesArray);
         return scopesArray;
       }
     } else {
-      console.log('OAuth Doctor: ⚠️ No scope parameter found in URL, will parse from page content');
     }
     
     // Description-to-scope mapping for when URL doesn't have scope parameter
@@ -291,25 +282,21 @@
       try {
         const elements = document.querySelectorAll(selector);
         if (elements.length > 0) {
-          console.log(`OAuth Doctor: Found ${elements.length} elements with selector: ${selector}`);
           let selectorScopeCount = 0;
           elements.forEach((el, idx) => {
             let text = el.textContent.trim();
-            console.log(`OAuth Doctor: Element ${idx} text:`, text);
             // Clean up text - remove extra descriptions
             text = text.split(/[:(]/)[0].trim();
             
             // Only add if it looks like a scope (reasonable length, no full sentences)
             if (text && text.length > 0 && text.length < 200) {
               const normalized = text.toLowerCase();
-              console.log(`OAuth Doctor: Normalized text:`, normalized);
               
               let matched = false;
               
               // First, try to match against description mapping
               for (const [description, scopeName] of Object.entries(descriptionToScope)) {
                 if (normalized.includes(description)) {
-                  console.log(`OAuth Doctor: ✅ Matched description "${text}" to scope "${scopeName}"`);
                   scopes.add(scopeName);
                   selectorScopeCount++;
                   matched = true;
@@ -322,7 +309,6 @@
                 const normalizedUnderscore = normalized.replace(/\s+/g, '_');
                 for (const knownScope of Object.keys(SCOPE_RISK_LEVELS)) {
                   if (normalizedUnderscore.includes(knownScope.replace(/-/g, '_')) || knownScope.includes(normalizedUnderscore)) {
-                    console.log(`OAuth Doctor: ✅ Matched "${text}" to known scope "${knownScope}"`);
                     scopes.add(knownScope);
                     selectorScopeCount++;
                     matched = true;
@@ -333,26 +319,21 @@
               
               // Also add the raw text if it looks like a scope name (not a sentence)
               if (!matched && text.match(/^[a-zA-Z_]+$/)) {
-                console.log(`OAuth Doctor: ✅ Adding raw scope "${text}"`);
                 scopes.add(text.toLowerCase());
                 selectorScopeCount++;
                 matched = true;
               }
               
               if (!matched) {
-                console.log(`OAuth Doctor: ❌ Skipped "${text}" (no match)`);
               }
             } else {
-              console.log(`OAuth Doctor: ❌ Skipped element ${idx} - invalid text`);
             }
           });
           if (selectorScopeCount > 0) {
-            console.log(`OAuth Doctor: Selector "${selector}" found ${selectorScopeCount} scopes. Total so far:`, Array.from(scopes));
             break; // Found scopes, no need to try other selectors
           }
         }
       } catch (e) {
-        console.log(`OAuth Doctor: Selector failed: ${selector}`, e);
       }
     }
     
@@ -372,27 +353,22 @@
     }
     
     const scopesArray = Array.from(scopes);
-    console.log('OAuth Doctor: Final extracted scopes:', scopesArray);
     return scopesArray;
   }
 
   // Analyze scopes and categorize by risk (teammate's system with scores)
   function analyzeScopes(scopes) {
-    console.log('OAuth Doctor: analyzeScopes called with scopes:', scopes);
     const analyses = scopes.map(scope => {
       const normalized = scope.toLowerCase().replace(/[^a-z_]/g, '_');
-      console.log('OAuth Doctor: Analyzing scope:', scope, '-> normalized:', normalized);
       
       // Try exact match first
       for (const [key, risk] of Object.entries(SCOPE_RISK_LEVELS)) {
         if (normalized.includes(key.replace(/-/g, '_'))) {
-          console.log('OAuth Doctor: ✅ Matched scope', scope, 'to', key, '- Level:', risk.level, 'Score:', risk.score);
           return { scope: scope, ...risk };
         }
       }
       
       // Default for unknown scopes
-      console.log('OAuth Doctor: ⚠️  Unknown scope:', scope);
       return {
         scope: scope,
         level: 'UNKNOWN',
@@ -402,7 +378,6 @@
       };
     }).sort((a, b) => b.score - a.score); // Sort by score descending
     
-    console.log('OAuth Doctor: analyzeScopes returning', analyses.length, 'analyses:', analyses);
     return analyses;
   }
   
@@ -584,10 +559,8 @@ Return ONLY valid JSON, no additional text.`;
 
   // Detect anomalies in scope combinations (rule-based fallback)
   function detectAnomalies(analyses) {
-    console.log('OAuth Doctor: detectAnomalies called with analyses:', analyses);
     const anomalies = [];
     const scopeNames = analyses.map(a => a.scope.toLowerCase());
-    console.log('OAuth Doctor: Scope names for anomaly detection:', scopeNames);
     
     // Anomaly 1: FULL access requested
     if (scopeNames.some(s => s.includes('full'))) {
@@ -604,10 +577,7 @@ Return ONLY valid JSON, no additional text.`;
     // Anomaly 2: Too many high-risk scopes
     const highRiskScopes = analyses.filter(a => a.score >= 7);
     const highRiskCount = highRiskScopes.length;
-    console.log('OAuth Doctor: High-risk scopes (score >= 7):', highRiskScopes);
-    console.log('OAuth Doctor: High-risk count:', highRiskCount);
     if (highRiskCount >= 3) {
-      console.log('OAuth Doctor: ✅ Multiple High-Risk Permissions anomaly detected');
       anomalies.push({
         severity: 'HIGH',
         icon: '⚠️',
@@ -617,7 +587,6 @@ Return ONLY valid JSON, no additional text.`;
         color: '#f57c00'
       });
     } else {
-      console.log('OAuth Doctor: ❌ Multiple High-Risk Permissions anomaly NOT detected (need 3+, have ' + highRiskCount + ')');
     }
     
     // Anomaly 3: Refresh token + Full/API (persistent broad access)
@@ -674,7 +643,6 @@ Return ONLY valid JSON, no additional text.`;
       });
     }
     
-    console.log('OAuth Doctor: detectAnomalies returning', anomalies.length, 'anomalies:', anomalies);
     return anomalies;
   }
   
@@ -802,18 +770,15 @@ Return ONLY valid JSON, no additional text.`;
     // For token endpoint: errors are returned as JSON or XML
     const pathname = window.location.pathname.toLowerCase();
     if (!finalError && (pathname.includes('/services/oauth2/authorize') || pathname.includes('/services/oauth2/token'))) {
-      console.log('OAuth Doctor: Checking page content for OAuth errors...');
       
       // Check if document.body exists (might be null for XML responses)
       if (!document.body) {
-        console.log('OAuth Doctor: document.body is null, checking for XML content...');
         
         // For XML responses, try to extract raw text first to avoid parsing issues
         try {
           // Method 1: Try to get raw XML as text
           const xmlSerializer = new XMLSerializer();
           const xmlString = xmlSerializer.serializeToString(document);
-          console.log('OAuth Doctor: Raw XML string length:', xmlString.length);
           
           // Use regex to extract error and error_description from raw XML
           // This avoids HTML parsing issues inside XML elements
@@ -825,7 +790,6 @@ Return ONLY valid JSON, no additional text.`;
             finalError = errorMatch[1].trim();
             // Strip any HTML tags from error
             finalError = finalError.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-            console.log('OAuth Doctor: Extracted error from XML:', finalError);
           }
           
           if (errorDescMatch) {
@@ -837,7 +801,6 @@ Return ONLY valid JSON, no additional text.`;
               .replace(/<[^>]*>/g, ' ')       // Remove any other HTML tags
               .replace(/\s+/g, ' ')           // Collapse multiple spaces
               .trim();
-            console.log('OAuth Doctor: Extracted error_description from XML (cleaned):', finalDescription);
           }
           
           // If regex didn't work, try DOM method with textContent (safer than innerHTML)
@@ -849,7 +812,6 @@ Return ONLY valid JSON, no additional text.`;
               // Use textContent to get raw text without HTML parsing
               finalError = errorElement.textContent || errorElement.textContent || '';
               finalError = finalError.trim();
-              console.log('OAuth Doctor: Found error via querySelector:', finalError);
             }
             
             if (errorDescElement) {
@@ -862,7 +824,6 @@ Return ONLY valid JSON, no additional text.`;
                 .replace(/<[^>]*>/g, ' ')       // Remove any other HTML tags
                 .replace(/\s+/g, ' ')           // Collapse multiple spaces
                 .trim();
-              console.log('OAuth Doctor: Found error_description via querySelector (cleaned):', finalDescription);
             }
           } else {
             // Clean up the extracted text
@@ -890,23 +851,19 @@ Return ONLY valid JSON, no additional text.`;
         // For token endpoint, try to parse as JSON first
         if (pathname.includes('/services/oauth2/token')) {
           try {
-            console.log('OAuth Doctor: Attempting to parse token endpoint response as JSON...');
             const jsonData = JSON.parse(bodyText);
             
             if (jsonData.error) {
               finalError = jsonData.error;
               finalDescription = jsonData.error_description || jsonData.message || '';
               finalUri = jsonData.error_uri || '';
-              console.log('OAuth Doctor: Found error in JSON response:', finalError, finalDescription);
             }
           } catch (e) {
-            console.log('OAuth Doctor: Token endpoint response is not JSON, checking other formats...');
           }
           
           // If JSON parsing failed, try XML parsing
           if (!finalError) {
             try {
-              console.log('OAuth Doctor: Attempting to parse as XML...');
               const parser = new DOMParser();
               const xmlDoc = parser.parseFromString(bodyText, 'text/xml');
               const errorElement = xmlDoc.querySelector('error');
@@ -917,10 +874,8 @@ Return ONLY valid JSON, no additional text.`;
                 if (errorDescElement) {
                   finalDescription = errorDescElement.textContent;
                 }
-                console.log('OAuth Doctor: Found error in XML response:', finalError, finalDescription);
               }
             } catch (e) {
-              console.log('OAuth Doctor: Failed to parse as XML:', e);
             }
           }
         }
@@ -938,7 +893,6 @@ Return ONLY valid JSON, no additional text.`;
         if (match1) {
           finalError = decodeURIComponent(match1[1]);
           finalDescription = decodeURIComponent(match1[2].replace(/\+/g, ' '));
-          console.log('OAuth Doctor: Found error in page content (pattern 1):', finalError, finalDescription);
         } else {
           // Pattern 2: Look for common error keywords
           const errorPattern2 = /error[:\s]+([a-z_]+)/i;
@@ -953,7 +907,6 @@ Return ONLY valid JSON, no additional text.`;
             if (descMatch) {
               finalDescription = descMatch[1].trim();
             }
-            console.log('OAuth Doctor: Found error in page content (pattern 2):', finalError, finalDescription);
           }
         }
         
@@ -962,23 +915,18 @@ Return ONLY valid JSON, no additional text.`;
           if (bodyText.includes('redirect_uri') && (bodyText.includes('mismatch') || bodyText.includes('must match'))) {
             finalError = 'redirect_uri_mismatch';
             finalDescription = 'The redirect_uri in the request does not match the configured callback URL';
-            console.log('OAuth Doctor: Detected redirect_uri_mismatch from page content');
           } else if (bodyText.includes('invalid_client_id') || (bodyText.includes('client_id') && bodyText.includes('invalid'))) {
             finalError = 'invalid_client_id';
             finalDescription = 'The client_id is invalid or not found';
-            console.log('OAuth Doctor: Detected invalid_client_id from page content');
           } else if (bodyText.includes('unauthorized_client') || bodyText.includes('not authorized')) {
             finalError = 'unauthorized_client';
             finalDescription = 'The client is not authorized to use this authorization flow';
-            console.log('OAuth Doctor: Detected unauthorized_client from page content');
           } else if (bodyText.includes('invalid_grant') || bodyText.includes('authentication failure')) {
             finalError = 'invalid_grant';
             finalDescription = 'Authentication failed or authorization code is invalid';
-            console.log('OAuth Doctor: Detected invalid_grant from page content');
           } else if (bodyText.includes('invalid_client') || bodyText.includes('client authentication failed')) {
             finalError = 'invalid_client';
             finalDescription = 'Client authentication failed';
-            console.log('OAuth Doctor: Detected invalid_client from page content');
           }
         }
       }
@@ -1049,7 +997,6 @@ Return ONLY valid JSON, no additional text.`;
   async function createAnalyzerOverlay(scopes, analysis, error) {
     // Prevent multiple overlays from being created simultaneously
     if (isCreatingOverlay) {
-      console.log('OAuth Doctor: Already creating overlay, skipping...');
       return;
     }
     
@@ -1160,15 +1107,12 @@ Return ONLY valid JSON, no additional text.`;
       if (scopes && scopes.length > 0) {
         // Use rule-based analysis by default (AI will be on-demand via checkbox)
         console.log('Using rule-based security analysis (AI on-demand)...');
-        console.log('OAuth Doctor: Analysis data passed to detectAnomalies:', analysis);
         let anomalies = detectAnomalies(analysis);
         // Ensure anomalies is always an array
         if (!Array.isArray(anomalies)) {
           console.error('OAuth Doctor: detectAnomalies did not return an array!', anomalies);
           anomalies = [];
         }
-        console.log('OAuth Doctor: Security Analysis - Detected', anomalies.length, 'anomalies');
-        console.log('OAuth Doctor: Anomalies:', anomalies);
         let explanationsMap = new Map(); // Store AI explanations by scope name
         
         // Check if AI is available (but don't call it automatically)
@@ -1179,7 +1123,6 @@ Return ONLY valid JSON, no additional text.`;
         const aiModel = config.aiModel || 'claude-sonnet-4-20250514';
         
         // Debug: Log anomalies right before generating HTML
-        console.log('OAuth Doctor: About to generate Security Analysis HTML with anomalies:', JSON.stringify(anomalies, null, 2));
         
         // AI Analysis Toggle Section (moved above)
         contentHTML += `
@@ -1301,17 +1244,14 @@ Return ONLY valid JSON, no additional text.`;
         <div style="margin: 25px 0; height: 2px; background: linear-gradient(90deg, transparent, #ddd, transparent);"></div>
         `;
         
-        console.log('OAuth Doctor: Security Analysis section added to contentHTML. Anomalies count:', anomalies.length);
         
         // Debug: Check if security-analysis-container is in contentHTML
         if (contentHTML.includes('security-analysis-container')) {
-          console.log('OAuth Doctor: ✅ security-analysis-container is in contentHTML');
           // Extract and log the security analysis HTML
           const startIdx = contentHTML.indexOf('<div id="security-analysis-container"');
           const endIdx = contentHTML.indexOf('</div>', startIdx + 500) + 6; // Find closing div after at least 500 chars
           if (startIdx >= 0 && endIdx > startIdx) {
             const securityHTML = contentHTML.substring(startIdx, Math.min(endIdx + 200, contentHTML.length));
-            console.log('OAuth Doctor: Security Analysis HTML (first 800 chars):', securityHTML.substring(0, 800));
           }
         } else {
           console.error('OAuth Doctor: ❌ security-analysis-container is NOT in contentHTML!');
@@ -1574,7 +1514,6 @@ Return ONLY valid JSON, no additional text.`;
                            (document.documentElement && document.documentElement.nodeName === 'OAuth');
       
       if (isXMLDocument) {
-        console.log('OAuth Doctor: Detected XML document, using DOMParser for safe HTML parsing');
         try {
           // Parse HTML in a safe HTML document context
           const parser = new DOMParser();
@@ -1634,8 +1573,6 @@ Return ONLY valid JSON, no additional text.`;
       if (isPureXML) {
         // For pure XML documents, we use an iframe with srcdoc to display the popup
         // This preserves the XML display while showing our overlay
-        console.log('OAuth Doctor: Detected pure XML document, using iframe with srcdoc to preserve XML display');
-        console.log('OAuth Doctor: Original XML document preserved:', document.documentElement.outerHTML);
         
         // Create an iframe to host our HTML popup (positioned on right side only)
         // Match the exact dimensions of the authorize endpoint popup
@@ -1769,7 +1706,6 @@ Return ONLY valid JSON, no additional text.`;
         document.documentElement.appendChild(iframe);
         
         // Log helpful message
-        console.log('📋 OAuth Doctor: Original XML response:');
         console.log(document.documentElement.querySelector('error')?.textContent || 'N/A');
         console.log(document.documentElement.querySelector('error_description')?.textContent || 'N/A');
         console.log('\n💡 Tip: The XML content is preserved in the DOM. The popup is shown on the right side.');
@@ -1943,7 +1879,6 @@ Return ONLY valid JSON, no additional text.`;
           document.body.appendChild(overlay);
         } else {
           // Edge case: No body but also not XML - try documentElement
-          console.log('OAuth Doctor: No document.body, appending overlay to documentElement');
           document.documentElement.appendChild(overlay);
         }
       } catch (e) {
@@ -1962,10 +1897,6 @@ Return ONLY valid JSON, no additional text.`;
       // Verify Security Analysis section exists
       const securityAnalysisContainer = document.getElementById('security-analysis-container');
       if (securityAnalysisContainer) {
-        console.log('OAuth Doctor: Security Analysis container found in DOM');
-        console.log('OAuth Doctor: Container innerHTML length:', securityAnalysisContainer.innerHTML.length);
-        console.log('OAuth Doctor: Container first 500 chars:', securityAnalysisContainer.innerHTML.substring(0, 500));
-        console.log('OAuth Doctor: Container dimensions:', securityAnalysisContainer.offsetWidth + 'x' + securityAnalysisContainer.offsetHeight);
         
         // Force visibility and dimensions
         securityAnalysisContainer.style.display = 'block';
@@ -1976,8 +1907,6 @@ Return ONLY valid JSON, no additional text.`;
         // Force padding div visibility
         const paddingDiv = securityAnalysisContainer.querySelector('div[style*="padding"]');
         if (paddingDiv) {
-          console.log('OAuth Doctor: Padding div found');
-          console.log('OAuth Doctor: Padding div dimensions:', paddingDiv.offsetWidth + 'x' + paddingDiv.offsetHeight);
           paddingDiv.style.display = 'block';
           paddingDiv.style.padding = '18px';
           paddingDiv.style.minHeight = '60px';
@@ -1990,10 +1919,6 @@ Return ONLY valid JSON, no additional text.`;
         // Check inner divs
         const ruleBasedResults = document.getElementById('scope-rule-based-results');
         if (ruleBasedResults) {
-          console.log('OAuth Doctor: scope-rule-based-results found');
-          console.log('OAuth Doctor: scope-rule-based-results innerHTML length:', ruleBasedResults.innerHTML.length);
-          console.log('OAuth Doctor: scope-rule-based-results first 300 chars:', ruleBasedResults.innerHTML.substring(0, 300));
-          console.log('OAuth Doctor: scope-rule-based-results dimensions:', ruleBasedResults.offsetWidth + 'x' + ruleBasedResults.offsetHeight);
           
           // Force visibility and dimensions
           ruleBasedResults.style.display = 'block';
@@ -2004,12 +1929,10 @@ Return ONLY valid JSON, no additional text.`;
           
           // Force all child divs to be visible
           const childDivs = ruleBasedResults.querySelectorAll('div');
-          console.log('OAuth Doctor: Found', childDivs.length, 'child divs in scope-rule-based-results');
           childDivs.forEach((div, idx) => {
             div.style.display = 'block';
             div.style.visibility = 'visible';
             div.style.height = 'auto';
-            console.log('OAuth Doctor: Child div', idx, 'dimensions:', div.offsetWidth + 'x' + div.offsetHeight);
           });
         } else {
           console.error('OAuth Doctor: scope-rule-based-results NOT found!');
@@ -2520,7 +2443,6 @@ Return ONLY valid JSON, no additional text.`;
 
   // Initialize the OAuth Doctor
   async function initialize() {
-    console.log('OAuth Doctor: Initializing on', window.location.href);
     
     const url = window.location.href.toLowerCase();
     const path = window.location.pathname.toLowerCase();
@@ -2534,16 +2456,13 @@ Return ONLY valid JSON, no additional text.`;
       url.includes('error=') && (path.includes('/oauth') || path.includes('remoteaccess'));
     
     if (!isOAuthRelatedUrl) {
-      console.log('OAuth Doctor: Not an OAuth-related page, skipping auto-popup');
       return;
     }
     
-    console.log('OAuth Doctor: OAuth-related page detected, proceeding with analysis');
     
     // Check for OAuth errors first (higher priority)
     const error = checkForOAuthError();
     if (error) {
-      console.log('OAuth Doctor: Error detected', error);
       await createAnalyzerOverlay(null, null, error);
       return;
     }
@@ -2553,12 +2472,10 @@ Return ONLY valid JSON, no additional text.`;
     if (path.includes('remoteaccessauthorizationpage.apexp')) {
       const scopes = extractScopes();
       if (scopes.length > 0) {
-        console.log('OAuth Doctor: Scopes detected', scopes);
         
         // Analyze scopes and create overlay (async)
         (async () => {
           const analysis = analyzeScopes(scopes);
-          console.log('OAuth Doctor: Scope analysis', analysis);
           
           // Create overlay (no loading popup - AI is on-demand)
           await createAnalyzerOverlay(scopes, analysis, null);
@@ -2569,73 +2486,58 @@ Return ONLY valid JSON, no additional text.`;
       // If on OAuth authorization page but no scopes found yet, wait and try again
       // (scopes might load dynamically)
       if (isOAuthAuthorizationPage()) {
-        console.log('OAuth Doctor: Authorization page detected, waiting for scopes to load...');
         
         setTimeout(async () => {
           const delayedScopes = extractScopes();
           if (delayedScopes.length > 0) {
-            console.log('OAuth Doctor: Scopes found after delay', delayedScopes);
             
             const analysis = analyzeScopes(delayedScopes);
             
             // Create overlay (no loading popup - AI is on-demand)
             await createAnalyzerOverlay(delayedScopes, analysis, null);
           } else {
-            console.log('OAuth Doctor: No scopes found on authorization page');
           }
         }, 1000); // Wait 1 second for page to fully render
       }
     } else if (path.includes('/services/oauth2/authorize')) {
       // For /services/oauth2/authorize endpoint, check for scopes or errors
       // (this endpoint is often used for errors that appear in page content)
-      console.log('OAuth Doctor: Checking authorize endpoint for scopes or errors...');
       
       const scopes = extractScopes();
       if (scopes.length > 0) {
-        console.log('OAuth Doctor: Scopes detected on authorize endpoint', scopes);
         
         // Analyze scopes and create overlay (async)
         (async () => {
           const analysis = analyzeScopes(scopes);
-          console.log('OAuth Doctor: Scope analysis', analysis);
           
           // Create overlay (no loading popup - AI is on-demand)
           await createAnalyzerOverlay(scopes, analysis, null);
         })();
       } else {
-        console.log('OAuth Doctor: No scopes found on authorize endpoint');
         
         // Wait a moment and check again for errors in page content
         // (errors might load dynamically after initial page load)
         setTimeout(() => {
-          console.log('OAuth Doctor: Checking again for errors in page content...');
           const delayedError = checkForOAuthError();
           if (delayedError) {
-            console.log('OAuth Doctor: Error detected in page content after delay', delayedError);
             createAnalyzerOverlay(null, null, delayedError);
           } else {
-            console.log('OAuth Doctor: No errors found on authorize endpoint');
           }
         }, 500); // Wait 500ms for page content to fully render
       }
     } else if (path.includes('/services/oauth2/token')) {
       // For /services/oauth2/token endpoint, check for errors
       // (this endpoint typically returns JSON error responses)
-      console.log('OAuth Doctor: Checking token endpoint for errors...');
       
       // Wait a moment for page content to fully render
       setTimeout(() => {
-        console.log('OAuth Doctor: Checking for errors in token endpoint response...');
         const tokenError = checkForOAuthError();
         if (tokenError) {
-          console.log('OAuth Doctor: Error detected on token endpoint', tokenError);
           createAnalyzerOverlay(null, null, tokenError);
         } else {
-          console.log('OAuth Doctor: No errors found on token endpoint');
         }
       }, 300); // Wait 300ms for JSON response to render
     } else {
-      console.log('OAuth Doctor: OAuth page but not an authorization page, no auto-popup');
     }
   }
 
